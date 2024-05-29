@@ -77,9 +77,9 @@ const signUp = async (req, res) => {
 };
 
 /*------------------------------------------------- SignIn --------------------------------------------------*/
+
 const signIn = async (req, res) => {
     const { email, password } = req.body;
-    console.log(email, password);
 
     if (!email || !password) {
         return res.status(400).json({
@@ -89,25 +89,25 @@ const signIn = async (req, res) => {
     }
 
     try {
+        const cookieOptions = {
+            maxAge: 24 * 60 * 60 * 1000,
+            httpOnly: true,
+        };
+
         // Check if the user is an admin
         const admin = await adminModel.findOne({ email }).select('+password');
         if (admin) {
             if (!(await bcrypt.compare(password, admin.password))) {
-                return res.status(400).json({
+                return res.status(401).json({
                     success: false,
                     message: 'Invalid credentials',
                 });
             }
 
             const token = jwt.sign({ id: admin._id, role: admin.role }, SECRET_KEY, { expiresIn: '1d' });
-            console.log(token);
             admin.password = undefined;
 
-            const cookieOption = {
-                maxAge: 24 * 60 * 60 * 1000,
-                httpOnly: true,
-            };
-            res.cookie("token", token, cookieOption);
+            res.cookie("token", token, cookieOptions);
             return res.status(200).json({
                 success: true,
                 data: { admin, role: admin.role }
@@ -118,20 +118,16 @@ const signIn = async (req, res) => {
         const user = await userModel.findOne({ email }).select('+password');
         if (user) {
             if (!(await bcrypt.compare(password, user.password))) {
-                return res.status(400).json({
+                return res.status(401).json({
                     success: false,
                     message: 'Invalid credentials',
                 });
             }
 
             const token = jwt.sign({ id: user._id, role: user.role }, SECRET_KEY, { expiresIn: '1d' });
-            console.log(token);
+            user.password = undefined;
 
-            const cookieOption = {
-                maxAge: 24 * 60 * 60 * 1000,
-                httpOnly: true,
-            };
-            res.cookie("token", token, cookieOption);
+            res.cookie("token", token, cookieOptions);
             return res.status(200).json({
                 success: true,
                 data: { user, role: user.role }
@@ -139,9 +135,9 @@ const signIn = async (req, res) => {
         }
 
         // If neither admin nor user found with the provided email
-        return res.status(400).json({
+        return res.status(401).json({
             success: false,
-            message: 'Invalid credentials',
+            message: 'Invalid credentials, please sigup first',
         });
     } catch (error) {
         console.error('Error during sign-in:', error);
